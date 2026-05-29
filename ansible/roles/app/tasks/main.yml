@@ -15,6 +15,19 @@
     shell: /bin/false
     system: yes
 
+- name: Створення користувача operator із паролем 12345678
+  user:
+    name: operator
+    password: "{{ '12345678' | password_hash('sha512') }}"
+    shell: /bin/bash
+
+- name: Налаштування sudo прав для operator
+  copy:
+    dest: /etc/sudoers.d/operator
+    content: |
+      operator ALL=(ALL) NOPASSWD: /bin/systemctl start webapp.service, /bin/systemctl stop webapp.service, /bin/systemctl restart webapp.service, /bin/systemctl status webapp.service, /bin/systemctl reload nginx
+    mode: '0440'
+
 - name: Створення директорії для застосунку
   file:
     path: /opt/webapp
@@ -23,6 +36,11 @@
     group: app
     mode: '0755'
 
+- name: Встановлення модуля pg для БД
+  shell: npm install pg
+  args:
+    chdir: /opt/webapp
+
 - name: Створення тестового Node.js файлу (server.js)
   copy:
     dest: /opt/webapp/server.js
@@ -30,15 +48,35 @@
     group: app
     content: |
       const http = require('http');
+      const { Client } = require('pg');
+
       const port = process.env.NODE_PORT || {{ variant_port }};
+      const dbClient = new Client({
+        user: 'operator',
+        host: '{{ hostvars["db-vm"]["ansible_host"] }}',
+        database: 'app_db',
+        password: '{{ db_password }}',
+        port: {{ db_port }}
+      });
+
+      dbClient.connect().catch(err => console.error('DB connection error', err));
+
       const server = http.createServer((req, res) => {
-        res.statusCode = 200;
+        if (req.url === '/health/alive') {
+          res.writeHead(200);
+          return res.end('alive\n');
+        } 
+        if (req.url === '/health/ready') {
+          return dbClient.query('SELECT 1')
+            .then(() => { res.writeHead(200); res.end('ready\n'); })
+            .catch(() => { res.writeHead(500); res.end('not ready\n'); });
+        } 
+        res.writeHead(200);
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-        res.end('Привіт! Лабораторна працює. Варіант: {{ variant_number }}\n');
+        res.end('Лабораторна працює. Варіант: {{ variant_number }}\n');
       });
-      server.listen(port, () => {
-        console.log(`Server running at port ${port}`);
-      });
+
+      server.listen(port, () => console.log(`Server running at port ${port}`));
 
 - name: Налаштування systemd сервісу для застосунку
   copy:

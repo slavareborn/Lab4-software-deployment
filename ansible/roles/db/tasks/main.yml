@@ -19,6 +19,7 @@
     name: operator
     password: "{{ db_password }}"
     role_attr_flags: CREATEDB,SUPERUSER
+    port: "{{ db_port }}"
 
 - name: Створення бази даних (app_db)
   become: yes
@@ -26,6 +27,7 @@
   postgresql_db:
     name: app_db
     owner: operator
+    port: "{{ db_port }}"
 
 - name: Дозволяємо підключення ззовні (postgresql.conf)
   lineinfile:
@@ -39,4 +41,11 @@
     path: /etc/postgresql/14/main/pg_hba.conf
     line: "host    app_db          operator        {{ hostvars['worker-vm']['ansible_host'] }}/32            scram-sha-256"
     insertafter: EOF
+  notify: Restart PostgreSQL
+
+- name: Зміна порту PostgreSQL згідно варіанту
+  lineinfile:
+    path: /etc/postgresql/14/main/postgresql.conf
+    regexp: "^#?port = "
+    line: "port = {{ db_port }}"
   notify: Restart PostgreSQL

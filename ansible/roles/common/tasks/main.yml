@@ -20,12 +20,16 @@
     append: yes
 
 - name: Налаштування безпарольного sudo для ansible
-  lineinfile:
-    dest: /etc/sudoers
+  copy:
+    dest: /etc/sudoers.d/ansible
+    content: "ansible ALL=(ALL) NOPASSWD: ALL\n"
+    mode: '0440'
+
+- name: Додавання SSH-ключа для користувача ansible
+  authorized_key:
+    user: ansible
     state: present
-    regexp: '^ansible'
-    line: 'ansible ALL=(ALL) NOPASSWD: ALL'
-    validate: 'visudo -cf %s'
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
 
 - name: Створення користувача teacher із паролем 12345678
   user:
