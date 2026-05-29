@@ -1,0 +1,67 @@
+---
+- name: Додавання репозиторію Node.js (v18)
+  shell: curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+  args:
+    creates: /etc/apt/sources.list.d/nodesource.list
+
+- name: Встановлення Node.js
+  apt:
+    name: nodejs
+    state: present
+
+- name: Створення системного користувача app
+  user:
+    name: app
+    shell: /bin/false
+    system: yes
+
+- name: Створення директорії для застосунку
+  file:
+    path: /opt/webapp
+    state: directory
+    owner: app
+    group: app
+    mode: '0755'
+
+- name: Створення тестового Node.js файлу (server.js)
+  copy:
+    dest: /opt/webapp/server.js
+    owner: app
+    group: app
+    content: |
+      const http = require('http');
+      const port = process.env.NODE_PORT || {{ variant_port }};
+      const server = http.createServer((req, res) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.end('Привіт! Лабораторна працює. Варіант: {{ variant_number }}\n');
+      });
+      server.listen(port, () => {
+        console.log(`Server running at port ${port}`);
+      });
+
+- name: Налаштування systemd сервісу для застосунку
+  copy:
+    dest: /etc/systemd/system/webapp.service
+    content: |
+      [Unit]
+      Description=Node.js Web App
+      After=network.target
+
+      [Service]
+      Environment=NODE_PORT={{ variant_port }}
+      Type=simple
+      User=app
+      WorkingDirectory=/opt/webapp
+      ExecStart=/usr/bin/node server.js
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Запуск та увімкнення сервісу webapp в автозавантаження
+  systemd:
+    name: webapp
+    state: restarted
+    enabled: yes
+    daemon_reload: yes

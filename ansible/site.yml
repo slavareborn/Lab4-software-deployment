@@ -10,9 +10,10 @@
   become: yes
   roles:
     - db
-# - name: Налаштування Node.js застосунку та Nginx
-#   hosts: workers
-#   become: yes
-#   roles:
-#     - app
-#     - nginx
+
+- name: Налаштування Node.js застосунку та Nginx
+  hosts: workers
+  become: yes
+  roles:
+    - app
+    - nginx

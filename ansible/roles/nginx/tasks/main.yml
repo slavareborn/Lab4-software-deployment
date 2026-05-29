@@ -1,0 +1,22 @@
+---
+- name: Встановлення Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Видалення дефолтного конфігу Nginx
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Копіювання конфігурації проксі Nginx
+  template:
+    src: webapp.conf.j2
+    dest: /etc/nginx/sites-available/webapp
+
+- name: Увімкнення конфігурації (створення symlink)
+  file:
+    src: /etc/nginx/sites-available/webapp
+    dest: /etc/nginx/sites-enabled/webapp
+    state: link
+  notify: Restart Nginx
