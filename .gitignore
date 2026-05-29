@@ -1,0 +1,7 @@
+node_modules/
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform.lock.hcl
+bento.box
