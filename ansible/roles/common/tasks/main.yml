@@ -1,0 +1,47 @@
+---
+- name: Вмикаємо мережевий адаптер eth1 для доступу в інтернет
+  shell: ip link set eth1 up && dhclient eth1
+  ignore_errors: yes
+
+- name: Встановлення базових пакетів (у т.ч. python3-passlib для хешування паролів)
+  apt:
+    name:
+      - python3-passlib
+      - acl
+      - ufw
+    state: present
+    update_cache: yes
+
+- name: Створення користувача ansible із безпарольним sudo
+  user:
+    name: ansible
+    groups: sudo
+    shell: /bin/bash
+    append: yes
+
+- name: Налаштування безпарольного sudo для ansible
+  lineinfile:
+    dest: /etc/sudoers
+    state: present
+    regexp: '^ansible'
+    line: 'ansible ALL=(ALL) NOPASSWD: ALL'
+    validate: 'visudo -cf %s'
+
+- name: Створення користувача teacher із паролем 12345678
+  user:
+    name: teacher
+    password: "{{ '12345678' | password_hash('sha512') }}"
+    groups: sudo
+    shell: /bin/bash
+
+- name: Створення директорії /home/student
+  file:
+    path: /home/student
+    state: directory
+    mode: '0755'
+
+- name: Створення файлу gradebook із номером варіанту
+  copy:
+    content: "{{ variant_number }}\n"
+    dest: /home/student/gradebook
+    mode: '0644'

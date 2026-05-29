@@ -1,0 +1,42 @@
+---
+- name: Встановлення PostgreSQL та необхідних залежностей
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+
+- name: Створення ОС-користувача operator
+  user:
+    name: operator
+    shell: /bin/bash
+
+- name: Створення користувача БД (operator)
+  become: yes
+  become_user: postgres
+  postgresql_user:
+    name: operator
+    password: "{{ db_password }}"
+    role_attr_flags: CREATEDB,SUPERUSER
+
+- name: Створення бази даних (app_db)
+  become: yes
+  become_user: postgres
+  postgresql_db:
+    name: app_db
+    owner: operator
+
+- name: Дозволяємо підключення ззовні (postgresql.conf)
+  lineinfile:
+    path: /etc/postgresql/14/main/postgresql.conf
+    regexp: "^#?listen_addresses"
+    line: "listen_addresses = '*'"
+  notify: Restart PostgreSQL
+
+- name: Налаштування pg_hba.conf для доступу з worker-vm
+  lineinfile:
+    path: /etc/postgresql/14/main/pg_hba.conf
+    line: "host    app_db          operator        {{ hostvars['worker-vm']['ansible_host'] }}/32            scram-sha-256"
+    insertafter: EOF
+  notify: Restart PostgreSQL
